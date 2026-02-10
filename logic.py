@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, TypedDict
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 Status = Literal["online", "offline"]
 
@@ -106,18 +107,21 @@ def format_ua_message(
     duration_seconds: int,
     *,
     now: datetime | None = None,
+    timezone_name: str = "Europe/Kyiv",
 ) -> str:
     """Build notification text in Ukrainian for Telegram."""
-    current_time = _normalize_datetime(now) if now else datetime.now(timezone.utc)
+    current_time_utc = _normalize_datetime(now) if now else datetime.now(timezone.utc)
+    display_timezone = _get_timezone(timezone_name)
+    current_time = current_time_utc.astimezone(display_timezone)
     time_label = current_time.strftime("%H:%M")
     duration_text = _format_duration_ua(duration_seconds)
 
     if is_online:
-        header = f"✅ {target_name}: об'єкт знову в мережі о {time_label}."
-        details = f"До цього був недоступний: {duration_text}."
+        header = f"✅ {target_name}: світло з'явилося о {time_label}."
+        details = f"Світло було відсутнє протягом {duration_text}."
     else:
-        header = f"⚠️ {target_name}: об'єкт недоступний з {time_label}."
-        details = f"До цього був доступний: {duration_text}."
+        header = f"⚠️ {target_name}: світло зникло о {time_label}."
+        details = f"Світло було наявне протягом {duration_text}."
 
     return f"{header}\n{details}"
 
@@ -190,3 +194,10 @@ def _format_duration_ua(total_seconds: int) -> str:
         parts.append(f"{hours} год")
     parts.append(f"{minutes} хв")
     return " ".join(parts)
+
+
+def _get_timezone(timezone_name: str):
+    try:
+        return ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        return timezone.utc

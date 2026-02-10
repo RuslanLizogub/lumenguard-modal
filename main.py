@@ -35,6 +35,7 @@ class RuntimeConfig(BaseModel):
     check_interval_seconds: int = Field(default=300, ge=60)
     check_timeout_seconds: float = Field(default=3.0, gt=0)
     state_path: str = Field(default="state.json", min_length=1)
+    timezone_name: str = Field(default="Europe/Kyiv", min_length=1)
 
 
 def load_runtime_config() -> RuntimeConfig:
@@ -53,6 +54,7 @@ def load_runtime_config() -> RuntimeConfig:
         "check_interval_seconds": os.getenv("CHECK_INTERVAL_SECONDS", "300"),
         "check_timeout_seconds": os.getenv("CHECK_TIMEOUT_SECONDS", "3"),
         "state_path": os.getenv("STATE_PATH", "state.json"),
+        "timezone_name": os.getenv("TIMEZONE", "Europe/Kyiv"),
     }
 
     try:
@@ -109,6 +111,7 @@ def run_cycle(
             is_online=is_online,
             duration_seconds=comparison.duration_seconds,
             now=run_time,
+            timezone_name=config.timezone_name,
         )
         sent = send_telegram_message(config.telegram_bot_token, target.chat_id, message)
         if not sent:
@@ -168,12 +171,23 @@ except Exception:  # pragma: no cover - optional integration in local runs
 
 if modal is not None:
     app = modal.App("lumenguard-modal")
-    image = modal.Image.debian_slim(python_version="3.12").pip_install_from_requirements(
-        "requirements.txt"
+    image = (
+        modal.Image.debian_slim(python_version="3.12")
+        .pip_install_from_requirements("requirements.txt")
+        # Ensure `import logic` works in Modal runtime.
+        .add_local_python_source("logic", copy=True)
+    )
+    config_secret = modal.Secret.from_name(
+        "lumenguard-config",
+        required_keys=["TELEGRAM_BOT_TOKEN", "MONITOR_CONFIG"],
     )
     state_dict = modal.Dict.from_name("lumenguard-state", create_if_missing=True)
 
-    @app.function(image=image, schedule=modal.Cron("*/5 * * * *"))
+    @app.function(
+        image=image,
+        schedule=modal.Cron("*/5 * * * *"),
+        secrets=[config_secret],
+    )
     def monitor_with_modal() -> None:
         """Modal cron entrypoint: every 5 minutes."""
         config = load_runtime_config()

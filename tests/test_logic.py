@@ -89,7 +89,8 @@ def test_format_ua_message_for_online_event() -> None:
     )
 
     assert "Квартира" in message
-    assert "знову в мережі" in message
+    assert "світло з'явилося" in message
+    assert "Світло було відсутнє протягом" in message
     assert "1 год 1 хв" in message
 
 
@@ -104,8 +105,22 @@ def test_format_ua_message_for_offline_event() -> None:
     )
 
     assert "Дача" in message
-    assert "недоступний" in message
+    assert "світло зникло" in message
+    assert "Світло було наявне протягом" in message
     assert "30 хв" in message
+
+
+def test_format_ua_message_uses_kyiv_timezone_by_default() -> None:
+    now_utc = datetime(2026, 2, 10, 19, 4, tzinfo=timezone.utc)
+
+    message = format_ua_message(
+        target_name="Локальний тест",
+        is_online=True,
+        duration_seconds=60,
+        now=now_utc,
+    )
+
+    assert "о 21:04" in message
 
 
 def test_save_and_load_state_roundtrip(tmp_path) -> None:
