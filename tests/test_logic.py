@@ -90,7 +90,7 @@ def test_format_ua_message_for_online_event() -> None:
 
     assert "🟢 <b>Світло з'явилося</b>" in message
     assert "⏰ Час появи: <b>14:30</b>" in message
-    assert "⏳ Світло було відсутнє протягом <b>1 год 1 хв</b>" in message
+    assert "⏳ Світло було відсутнє <b>1 год 1 хв</b>" in message
 
 
 def test_format_ua_message_for_offline_event() -> None:
@@ -105,7 +105,7 @@ def test_format_ua_message_for_offline_event() -> None:
 
     assert "🔴 <b>Світло зникло</b>" in message
     assert "⏰ Час зникнення: <b>14:30</b>" in message
-    assert "⏳ Світло було присутнє протягом <b>30 хв</b>" in message
+    assert "⏳ Світло було присутнє <b>30 хв</b>" in message
 
 
 def test_format_ua_message_uses_kyiv_timezone_by_default() -> None:
@@ -131,7 +131,7 @@ def test_format_ua_message_ignores_seconds_in_duration() -> None:
         now=now,
     )
 
-    assert "⏳ Світло було присутнє протягом <b>2 год 46 хв</b>" in message
+    assert "⏳ Світло було присутнє <b>2 год 46 хв</b>" in message
     assert "33с" not in message
 
 
