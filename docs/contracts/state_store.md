@@ -1,8 +1,8 @@
-# State Store Contract
+# Контракт State Store
 
-State is stored as JSON (`state.json`) locally or as one object in `modal.Dict`.
+Стан зберігається як JSON (`state.json`) локально або як один об'єкт у `modal.Dict` (`lumenguard-state`).
 
-## State JSON schema (minimal)
+## Схема стану (мінімум)
 ```json
 {
   "home_kyiv": {
@@ -16,12 +16,12 @@ State is stored as JSON (`state.json`) locally or as one object in `modal.Dict`.
 }
 ```
 
-## Per-target fields
+## Поля по цілі
 - `status`: `"online" | "offline"`
-- `changed_at`: ISO-8601 datetime string
+- `changed_at`: рядок дати/часу у форматі ISO-8601
 
-## Update rules
-- First observation: create target state without Telegram notification.
-- No status change: keep previous `changed_at`.
-- Status changed + Telegram success: write new state with current timestamp.
-- Status changed + Telegram failure: keep old state.
+## Правила оновлення
+- Перше спостереження: створити стан без повідомлення в Telegram.
+- Без зміни статусу: зберегти попередній `changed_at`.
+- Статус змінився + Telegram success: записати новий стан з поточним часом.
+- Статус змінився + Telegram failure: залишити попередній стан.

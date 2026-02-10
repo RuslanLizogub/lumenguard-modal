@@ -117,13 +117,21 @@ def format_ua_message(
     duration_text = _format_duration_ua(duration_seconds)
 
     if is_online:
-        header = f"✅ {target_name}: світло з'явилося о {time_label}."
-        details = f"Світло було відсутнє протягом {duration_text}."
+        return "\n".join(
+            [
+                "🟢 <b>Світло з'явилося</b>",
+                f"⏰ Час появи: <b>{time_label}</b>",
+                f"⏳ Світло було відсутнє протягом <b>{duration_text}</b>",
+            ]
+        )
     else:
-        header = f"⚠️ {target_name}: світло зникло о {time_label}."
-        details = f"Світло було наявне протягом {duration_text}."
-
-    return f"{header}\n{details}"
+        return "\n".join(
+            [
+                "🔴 <b>Світло зникло</b>",
+                f"⏰ Час зникнення: <b>{time_label}</b>",
+                f"⏳ Світло було присутнє протягом <b>{duration_text}</b>",
+            ]
+        )
 
 
 def load_state(path: str | Path) -> dict[str, SavedState]:
@@ -183,17 +191,11 @@ def _parse_iso_datetime(raw_value: object, *, fallback: datetime) -> datetime:
 
 
 def _format_duration_ua(total_seconds: int) -> str:
-    total_minutes = max(0, total_seconds) // 60
-    days, remainder = divmod(total_minutes, 24 * 60)
-    hours, minutes = divmod(remainder, 60)
-
-    parts: list[str] = []
-    if days:
-        parts.append(f"{days} д")
-    if days or hours:
-        parts.append(f"{hours} год")
-    parts.append(f"{minutes} хв")
-    return " ".join(parts)
+    total_minutes = max(0, int(total_seconds)) // 60
+    hours, minutes = divmod(total_minutes, 60)
+    if hours:
+        return f"{hours} год {minutes} хв"
+    return f"{minutes} хв"
 
 
 def _get_timezone(timezone_name: str):

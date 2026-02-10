@@ -1,17 +1,18 @@
-# Runtime Config Contract
+# Контракт Runtime Config
 
-Backend reads configuration from environment variables.
+Backend читає конфігурацію зі змінних середовища.
 
-## Required vars
-- `TELEGRAM_BOT_TOKEN`: Telegram bot token (string)
-- `MONITOR_CONFIG`: JSON array of monitoring targets
+## Обов'язкові змінні
+- `TELEGRAM_BOT_TOKEN`: токен Telegram-бота
+- `MONITOR_CONFIG`: JSON-масив цілей моніторингу
 
-## Optional vars
-- `CHECK_INTERVAL_SECONDS` (default `300`)
-- `CHECK_TIMEOUT_SECONDS` (default `3`)
-- `STATE_PATH` (default `state.json`)
+## Опційні змінні
+- `CHECK_INTERVAL_SECONDS` (default: `300`, мінімум: `60`)
+- `CHECK_TIMEOUT_SECONDS` (default: `3`)
+- `STATE_PATH` (default: `state.json`)
+- `TIMEZONE` (default: `Europe/Kyiv`)
 
-## `MONITOR_CONFIG` JSON schema (minimal)
+## Схема `MONITOR_CONFIG` (мінімум)
 ```json
 [
   {
@@ -24,9 +25,9 @@ Backend reads configuration from environment variables.
 ]
 ```
 
-## Field constraints
-- `id`: non-empty string
-- `name`: non-empty string
-- `host`: non-empty string
-- `port`: integer `1..65535`
-- `chat_id`: non-empty string
+## Обмеження полів
+- `id`: непорожній рядок (унікальний ключ стану)
+- `name`: непорожній рядок
+- `host`: непорожній рядок
+- `port`: ціле число `1..65535`
+- `chat_id`: непорожній рядок

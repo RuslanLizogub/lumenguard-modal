@@ -69,6 +69,7 @@ def send_telegram_message(bot_token: str, chat_id: str, text: str) -> bool:
     payload = {
         "chat_id": chat_id,
         "text": text,
+        "parse_mode": "HTML",
     }
 
     try:

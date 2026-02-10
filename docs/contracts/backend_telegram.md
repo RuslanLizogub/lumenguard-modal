@@ -1,24 +1,26 @@
-# Backend <-> Telegram Contract
+# Контракт Backend <-> Telegram
 
-## 1) Outgoing Request (Backend -> Telegram)
-Backend sends `POST` to Telegram Bot API:
+## Вихідний запит (Backend -> Telegram)
+Backend викликає `POST`:
 `https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/sendMessage`
 
 ### Request JSON
 ```json
 {
   "chat_id": "-100123456789",
-  "text": "⚠️ Квартира: об'єкт недоступний з 19:30.\nДо цього був доступний: 2 год 15 хв."
+  "text": "🟢 <b>Світло з'явилося</b>\n⏰ Час появи: <b>21:40</b>\n⏳ Світло було відсутнє протягом <b>6 хв</b>",
+  "parse_mode": "HTML"
 }
 ```
 
-### Required fields
-- `chat_id`: string (chat/channel id)
-- `text`: string (UA notification text)
+### Обов'язкові поля
+- `chat_id`: рядок (ID каналу/чату)
+- `text`: рядок (UA-текст повідомлення)
+- `parse_mode`: `HTML`
 
-## 2) Incoming Response (Telegram -> Backend)
+## Вхідна відповідь (Telegram -> Backend)
 
-### Success JSON (minimal)
+### Успіх (мінімум)
 ```json
 {
   "ok": true,
@@ -31,7 +33,7 @@ Backend sends `POST` to Telegram Bot API:
 }
 ```
 
-### Error JSON (minimal)
+### Помилка (мінімум)
 ```json
 {
   "ok": false,
@@ -40,5 +42,5 @@ Backend sends `POST` to Telegram Bot API:
 }
 ```
 
-## 3) Backend Rule
-- If Telegram request fails (HTTP/network/API), backend does **not** persist changed status for this target in the current cycle.
+## Правило обробки
+- Якщо запит до Telegram неуспішний (HTTP/network/API error), новий стан цілі не зберігається в цьому циклі.

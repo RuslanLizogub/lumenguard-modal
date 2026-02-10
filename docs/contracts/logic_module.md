@@ -1,6 +1,6 @@
-# Backend <-> Logic Module Contract
+# Контракт Backend <-> Logic Module
 
-This contract describes interaction between `main.py` (orchestrator) and `logic.py` (pure logic).
+Описує взаємодію між `main.py` (оркестратор) і `logic.py` (чиста логіка).
 
 ## 1) `check_ip`
 
@@ -57,16 +57,18 @@ This contract describes interaction between `main.py` (orchestrator) and `logic.
   "target_name": "Квартира",
   "is_online": true,
   "duration_seconds": 900,
-  "now": "2026-02-10T19:15:00+00:00"
+  "now": "2026-02-10T19:15:00+00:00",
+  "timezone_name": "Europe/Kyiv"
 }
 ```
 
 ### Output
 ```json
 {
-  "message_ua": "✅ Квартира: об'єкт знову в мережі о 19:15.\nДо цього був недоступний: 15 хв."
+  "message_ua": "🟢 <b>Світло з'явилося</b>\n⏰ Час появи: <b>21:15</b>\n⏳ Світло було відсутнє протягом <b>15 хв</b>"
 }
 ```
 
-## 4) Rule
-- Message is generated **only** when `changed == true` and `is_first_observation == false`.
+## 4) Правила
+- Повідомлення генерується лише коли `changed == true` і `is_first_observation == false`.
+- Тривалість у повідомленні відображається тільки в годинах/хвилинах.

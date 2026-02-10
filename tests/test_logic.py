@@ -88,10 +88,9 @@ def test_format_ua_message_for_online_event() -> None:
         now=now,
     )
 
-    assert "Квартира" in message
-    assert "світло з'явилося" in message
-    assert "Світло було відсутнє протягом" in message
-    assert "1 год 1 хв" in message
+    assert "🟢 <b>Світло з'явилося</b>" in message
+    assert "⏰ Час появи: <b>14:30</b>" in message
+    assert "⏳ Світло було відсутнє протягом <b>1 год 1 хв</b>" in message
 
 
 def test_format_ua_message_for_offline_event() -> None:
@@ -104,10 +103,9 @@ def test_format_ua_message_for_offline_event() -> None:
         now=now,
     )
 
-    assert "Дача" in message
-    assert "світло зникло" in message
-    assert "Світло було наявне протягом" in message
-    assert "30 хв" in message
+    assert "🔴 <b>Світло зникло</b>" in message
+    assert "⏰ Час зникнення: <b>14:30</b>" in message
+    assert "⏳ Світло було присутнє протягом <b>30 хв</b>" in message
 
 
 def test_format_ua_message_uses_kyiv_timezone_by_default() -> None:
@@ -120,7 +118,21 @@ def test_format_ua_message_uses_kyiv_timezone_by_default() -> None:
         now=now_utc,
     )
 
-    assert "о 21:04" in message
+    assert "⏰ Час появи: <b>21:04</b>" in message
+
+
+def test_format_ua_message_ignores_seconds_in_duration() -> None:
+    now = datetime(2026, 2, 10, 12, 30, tzinfo=timezone.utc)
+
+    message = format_ua_message(
+        target_name="Тест",
+        is_online=False,
+        duration_seconds=9993,
+        now=now,
+    )
+
+    assert "⏳ Світло було присутнє протягом <b>2 год 46 хв</b>" in message
+    assert "33с" not in message
 
 
 def test_save_and_load_state_roundtrip(tmp_path) -> None:
