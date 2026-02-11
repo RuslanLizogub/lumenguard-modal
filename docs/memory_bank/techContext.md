@@ -3,6 +3,7 @@
 ## Runtime
 - Python: 3.12 у Modal image (локально може бути 3.11/3.12).
 - Основні бібліотеки: `httpx`, `python-dotenv`, `pydantic`, `modal`.
+- Керування залежностями: `pyproject.toml`.
 
 ## Вхідні налаштування
 - `TELEGRAM_BOT_TOKEN`
@@ -21,6 +22,7 @@
 
 ## Команди обслуговування
 - Тести: `pytest -q`
-- Деплой: `modal deploy main.py`
-- Ручний запуск: `modal run main.py::monitor_with_modal`
+- Локальний запуск (1 цикл): `python main.py --once`
+- Деплой: `modal deploy modal_app.py`
+- Ручний запуск: `modal run modal_app.py::monitor_with_modal`
 - Оновлення секретів: `modal secret create lumenguard-config --from-dotenv .env --force`

@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 import socket
-import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from logic import check_ip, compare_states, format_ua_message, load_state, save_state
+from lumenguard.logic import check_ip, compare_states, format_ua_message, load_state, save_state
 
 
 class _DummySocket:
