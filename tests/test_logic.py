@@ -41,6 +41,7 @@ def test_compare_states_marks_first_observation() -> None:
 
     assert result.is_first_observation is True
     assert result.changed is False
+    assert result.state_updated is True
     assert result.current_status == "online"
     assert result.new_state == {"status": "online", "changed_at": now.isoformat()}
 
@@ -56,6 +57,7 @@ def test_compare_states_detects_status_change_and_duration() -> None:
 
     assert result.is_first_observation is False
     assert result.changed is True
+    assert result.state_updated is True
     assert result.previous_status == "offline"
     assert result.duration_seconds == 900
     assert result.new_state["status"] == "online"
@@ -70,8 +72,98 @@ def test_compare_states_keeps_timestamp_when_status_is_same() -> None:
     result = compare_states(previous, is_online=True, now=now)
 
     assert result.changed is False
+    assert result.state_updated is False
     assert result.duration_seconds == 0
     assert result.new_state == previous
+
+
+def test_compare_states_requires_two_cycles_to_confirm_offline() -> None:
+    now = datetime(2026, 2, 10, 12, 0, tzinfo=timezone.utc)
+    previous = {"status": "online", "changed_at": (now - timedelta(hours=1)).isoformat()}
+
+    first = compare_states(
+        previous,
+        is_online=False,
+        now=now,
+        offline_confirmation_cycles=2,
+    )
+
+    assert first.changed is False
+    assert first.state_updated is True
+    assert first.new_state["status"] == "online"
+    assert first.new_state["pending_status"] == "offline"
+    assert first.new_state["pending_count"] == 1
+
+    second = compare_states(
+        first.new_state,
+        is_online=False,
+        now=now + timedelta(minutes=5),
+        offline_confirmation_cycles=2,
+    )
+
+    assert second.changed is True
+    assert second.state_updated is True
+    assert second.new_state == {
+        "status": "offline",
+        "changed_at": (now + timedelta(minutes=5)).isoformat(),
+    }
+
+
+def test_compare_states_requires_two_cycles_to_confirm_online() -> None:
+    now = datetime(2026, 2, 10, 12, 0, tzinfo=timezone.utc)
+    previous = {"status": "offline", "changed_at": (now - timedelta(hours=1)).isoformat()}
+
+    first = compare_states(
+        previous,
+        is_online=True,
+        now=now,
+        online_confirmation_cycles=2,
+    )
+
+    assert first.changed is False
+    assert first.state_updated is True
+    assert first.new_state["status"] == "offline"
+    assert first.new_state["pending_status"] == "online"
+    assert first.new_state["pending_count"] == 1
+
+    second = compare_states(
+        first.new_state,
+        is_online=True,
+        now=now + timedelta(minutes=5),
+        online_confirmation_cycles=2,
+    )
+
+    assert second.changed is True
+    assert second.state_updated is True
+    assert second.new_state == {
+        "status": "online",
+        "changed_at": (now + timedelta(minutes=5)).isoformat(),
+    }
+
+
+def test_compare_states_clears_pending_transition_when_target_recovers() -> None:
+    now = datetime(2026, 2, 10, 12, 0, tzinfo=timezone.utc)
+    previous = {
+        "status": "online",
+        "changed_at": (now - timedelta(hours=1)).isoformat(),
+        "pending_status": "offline",
+        "pending_count": 1,
+        "pending_since": now.isoformat(),
+    }
+
+    result = compare_states(
+        previous,
+        is_online=True,
+        now=now + timedelta(minutes=5),
+        offline_confirmation_cycles=2,
+    )
+
+    assert result.changed is False
+    assert result.state_updated is True
+    assert result.new_state == {
+        "status": "online",
+        "changed_at": (now - timedelta(hours=1)).isoformat(),
+    }
 
 
 def test_format_ua_message_for_online_event() -> None:
@@ -82,9 +174,11 @@ def test_format_ua_message_for_online_event() -> None:
         is_online=True,
         duration_seconds=3660,
         now=now,
+        include_target_name=True,
     )
 
     assert "🟢 <b>Світло з'явилося</b>" in message
+    assert "🏠 Об'єкт: <b>Квартира</b>" in message
     assert "⏰ Час появи: <b>14:30</b>" in message
     assert "⏳ Світло було відсутнє <b>1 год 1 хв</b>" in message
 
@@ -97,9 +191,11 @@ def test_format_ua_message_for_offline_event() -> None:
         is_online=False,
         duration_seconds=1800,
         now=now,
+        include_target_name=True,
     )
 
     assert "🔴 <b>Світло зникло</b>" in message
+    assert "🏠 Об'єкт: <b>Дача</b>" in message
     assert "⏰ Час зникнення: <b>14:30</b>" in message
     assert "⏳ Світло було присутнє <b>30 хв</b>" in message
 
@@ -115,6 +211,19 @@ def test_format_ua_message_uses_kyiv_timezone_by_default() -> None:
     )
 
     assert "⏰ Час появи: <b>21:04</b>" in message
+
+
+def test_format_ua_message_hides_target_name_by_default() -> None:
+    now = datetime(2026, 2, 10, 12, 30, tzinfo=timezone.utc)
+
+    message = format_ua_message(
+        target_name="Квартира",
+        is_online=True,
+        duration_seconds=600,
+        now=now,
+    )
+
+    assert "🏠 Об'єкт:" not in message
 
 
 def test_format_ua_message_ignores_seconds_in_duration() -> None:

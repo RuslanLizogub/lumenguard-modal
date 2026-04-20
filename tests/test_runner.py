@@ -21,6 +21,11 @@ def _config() -> RuntimeConfig:
             ],
             "check_interval_seconds": 300,
             "check_timeout_seconds": 2.0,
+            "check_attempts": 3,
+            "check_attempt_delay_seconds": 0.0,
+            "offline_confirmation_cycles": 2,
+            "online_confirmation_cycles": 2,
+            "include_target_name_in_message": False,
             "state_path": "state.json",
             "timezone_name": "Europe/Kyiv",
         }
@@ -33,7 +38,14 @@ def test_run_cycle_first_observation_saves_state_without_notification(monkeypatc
 
     sent = {"called": False}
 
-    monkeypatch.setattr("lumenguard.runner.check_ip", lambda *args, **kwargs: True)
+    monkeypatch.setattr(
+        "lumenguard.runner.probe_target",
+        lambda *args, **kwargs: type(
+            "Probe",
+            (),
+            {"is_online": True, "successful_attempts": 3, "total_attempts": 3},
+        )(),
+    )
 
     def fake_send(*args, **kwargs):
         sent["called"] = True
@@ -55,11 +67,21 @@ def test_run_cycle_updates_state_when_status_changed_and_sent(monkeypatch) -> No
     previous_state = {
         "home": {
             "status": "online",
-            "changed_at": (now - timedelta(minutes=8)).isoformat(),
+            "changed_at": (now - timedelta(minutes=13)).isoformat(),
+            "pending_status": "offline",
+            "pending_count": 1,
+            "pending_since": (now - timedelta(minutes=8)).isoformat(),
         }
     }
 
-    monkeypatch.setattr("lumenguard.runner.check_ip", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        "lumenguard.runner.probe_target",
+        lambda *args, **kwargs: type(
+            "Probe",
+            (),
+            {"is_online": False, "successful_attempts": 0, "total_attempts": 3},
+        )(),
+    )
     monkeypatch.setattr("lumenguard.runner.send_telegram_message", lambda *args, **kwargs: True)
 
     state, has_state_update = run_cycle(config, previous_state, now=now)
@@ -72,22 +94,35 @@ def test_run_cycle_updates_state_when_status_changed_and_sent(monkeypatch) -> No
 def test_run_cycle_does_not_update_state_when_telegram_fails(monkeypatch) -> None:
     config = _config()
     now = datetime(2026, 2, 11, 10, 0, tzinfo=timezone.utc)
-    previous_changed_at = (now - timedelta(minutes=5)).isoformat()
+    previous_pending_since = (now - timedelta(minutes=5)).isoformat()
     previous_state = {
         "home": {
             "status": "online",
-            "changed_at": previous_changed_at,
+            "changed_at": (now - timedelta(minutes=10)).isoformat(),
+            "pending_status": "offline",
+            "pending_count": 1,
+            "pending_since": previous_pending_since,
         }
     }
 
-    monkeypatch.setattr("lumenguard.runner.check_ip", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        "lumenguard.runner.probe_target",
+        lambda *args, **kwargs: type(
+            "Probe",
+            (),
+            {"is_online": False, "successful_attempts": 0, "total_attempts": 3},
+        )(),
+    )
     monkeypatch.setattr("lumenguard.runner.send_telegram_message", lambda *args, **kwargs: False)
 
     state, has_state_update = run_cycle(config, previous_state, now=now)
 
     assert has_state_update is False
     assert state["home"]["status"] == "online"
-    assert state["home"]["changed_at"] == previous_changed_at
+    assert state["home"]["changed_at"] == (now - timedelta(minutes=10)).isoformat()
+    assert state["home"]["pending_status"] == "offline"
+    assert state["home"]["pending_count"] == 1
+    assert state["home"]["pending_since"] == previous_pending_since
 
 
 def test_run_cycle_no_change_keeps_state_and_skips_notification(monkeypatch) -> None:
@@ -101,7 +136,14 @@ def test_run_cycle_no_change_keeps_state_and_skips_notification(monkeypatch) -> 
     }
 
     sent = {"count": 0}
-    monkeypatch.setattr("lumenguard.runner.check_ip", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        "lumenguard.runner.probe_target",
+        lambda *args, **kwargs: type(
+            "Probe",
+            (),
+            {"is_online": False, "successful_attempts": 0, "total_attempts": 3},
+        )(),
+    )
 
     def fake_send(*args, **kwargs):
         sent["count"] += 1
@@ -114,3 +156,38 @@ def test_run_cycle_no_change_keeps_state_and_skips_notification(monkeypatch) -> 
     assert has_state_update is False
     assert sent["count"] == 0
     assert state == previous_state
+
+
+def test_run_cycle_stores_pending_offline_without_notification_on_first_bad_cycle(monkeypatch) -> None:
+    config = _config()
+    now = datetime(2026, 2, 11, 10, 0, tzinfo=timezone.utc)
+    previous_state = {
+        "home": {
+            "status": "online",
+            "changed_at": (now - timedelta(minutes=30)).isoformat(),
+        }
+    }
+
+    sent = {"count": 0}
+    monkeypatch.setattr(
+        "lumenguard.runner.probe_target",
+        lambda *args, **kwargs: type(
+            "Probe",
+            (),
+            {"is_online": False, "successful_attempts": 0, "total_attempts": 3},
+        )(),
+    )
+
+    def fake_send(*args, **kwargs):
+        sent["count"] += 1
+        return True
+
+    monkeypatch.setattr("lumenguard.runner.send_telegram_message", fake_send)
+
+    state, has_state_update = run_cycle(config, previous_state, now=now)
+
+    assert has_state_update is True
+    assert sent["count"] == 0
+    assert state["home"]["status"] == "online"
+    assert state["home"]["pending_status"] == "offline"
+    assert state["home"]["pending_count"] == 1

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-import tomllib
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    tomllib = None
 
 import modal
 
@@ -24,7 +28,7 @@ DEFAULT_DEPENDENCIES = [
 
 def _project_dependencies() -> list[str]:
     pyproject_path = ROOT_DIR / "pyproject.toml"
-    if not pyproject_path.exists():
+    if tomllib is None or not pyproject_path.exists():
         return DEFAULT_DEPENDENCIES
 
     with pyproject_path.open("rb") as fp:

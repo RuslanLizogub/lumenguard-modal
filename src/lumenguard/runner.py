@@ -9,10 +9,10 @@ import httpx
 from .config import RuntimeConfig, load_runtime_config
 from .logic import (
     SavedState,
-    check_ip,
     compare_states,
     format_ua_message,
     load_state,
+    probe_target,
     save_state,
 )
 
@@ -31,6 +31,13 @@ def send_telegram_message(bot_token: str, chat_id: str, text: str) -> bool:
             response = client.post(url, json=payload)
             response.raise_for_status()
         return True
+    except httpx.HTTPStatusError as exc:
+        details = exc.response.text.strip()
+        print(
+            "Помилка Telegram API "
+            f"для chat_id={chat_id}: status={exc.response.status_code}, body={details}"
+        )
+        return False
     except httpx.HTTPError as exc:
         print(f"Помилка Telegram API для chat_id={chat_id}: {exc}")
         return False
@@ -47,26 +54,60 @@ def run_cycle(
     has_state_update = False
 
     for target in config.monitor_config:
-        is_online = check_ip(target.host, target.port, timeout=config.check_timeout_seconds)
-        comparison = compare_states(state.get(target.id), is_online, now=run_time)
+        probe = probe_target(
+            target.host,
+            target.port,
+            timeout=config.check_timeout_seconds,
+            attempts=config.check_attempts,
+            delay_seconds=config.check_attempt_delay_seconds,
+        )
+        comparison = compare_states(
+            state.get(target.id),
+            probe.is_online,
+            now=run_time,
+            offline_confirmation_cycles=config.offline_confirmation_cycles,
+            online_confirmation_cycles=config.online_confirmation_cycles,
+        )
 
-        status_ua = "онлайн" if is_online else "офлайн"
+        status_ua = "онлайн" if probe.is_online else "офлайн"
         if comparison.is_first_observation:
-            print(f"[{target.id}] Перше спостереження: {status_ua}.")
+            print(
+                f"[{target.id}] Перше спостереження: {status_ua} "
+                f"({probe.successful_attempts}/{probe.total_attempts} успішних перевірок)."
+            )
             state[target.id] = comparison.new_state
             has_state_update = True
             continue
 
         if not comparison.changed:
-            print(f"[{target.id}] Без змін: {status_ua}.")
+            if comparison.state_updated:
+                state[target.id] = comparison.new_state
+                has_state_update = True
+                required_cycles = (
+                    config.offline_confirmation_cycles
+                    if comparison.current_status == "offline"
+                    else config.online_confirmation_cycles
+                )
+                pending_count = comparison.new_state.get("pending_count", 0)
+                print(
+                    f"[{target.id}] Кандидат на зміну: {status_ua} "
+                    f"({pending_count}/{required_cycles} циклів, "
+                    f"{probe.successful_attempts}/{probe.total_attempts} успішних перевірок)."
+                )
+            else:
+                print(
+                    f"[{target.id}] Без змін: {status_ua} "
+                    f"({probe.successful_attempts}/{probe.total_attempts} успішних перевірок)."
+                )
             continue
 
         message = format_ua_message(
             target_name=target.name,
-            is_online=is_online,
+            is_online=probe.is_online,
             duration_seconds=comparison.duration_seconds,
             now=run_time,
             timezone_name=config.timezone_name,
+            include_target_name=config.include_target_name_in_message,
         )
         sent = send_telegram_message(config.telegram_bot_token, target.chat_id, message)
         if not sent:
@@ -74,7 +115,10 @@ def run_cycle(
 
         state[target.id] = comparison.new_state
         has_state_update = True
-        print(f"[{target.id}] Статус змінився, повідомлення надіслано.")
+        print(
+            f"[{target.id}] Статус підтверджено як {status_ua}, повідомлення надіслано "
+            f"({probe.successful_attempts}/{probe.total_attempts} успішних перевірок)."
+        )
 
     return state, has_state_update
 
@@ -114,6 +158,20 @@ def coerce_state(raw_state: Any) -> dict[str, SavedState]:
         status = value.get("status")
         changed_at = value.get("changed_at")
         if status in {"online", "offline"} and isinstance(changed_at, str):
-            cleaned[target_id] = {"status": status, "changed_at": changed_at}
+            cleaned_state: SavedState = {"status": status, "changed_at": changed_at}
+            pending_status = value.get("pending_status")
+            pending_count = value.get("pending_count")
+            pending_since = value.get("pending_since")
+            if (
+                pending_status in {"online", "offline"}
+                and isinstance(pending_count, int)
+                and pending_count > 0
+                and isinstance(pending_since, str)
+            ):
+                cleaned_state["pending_status"] = pending_status
+                cleaned_state["pending_count"] = pending_count
+                cleaned_state["pending_since"] = pending_since
+
+            cleaned[target_id] = cleaned_state
 
     return cleaned

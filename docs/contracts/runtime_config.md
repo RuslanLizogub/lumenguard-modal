@@ -9,6 +9,11 @@ Backend читає конфігурацію зі змінних середови
 ## Опційні змінні
 - `CHECK_INTERVAL_SECONDS` (default: `300`, мінімум: `60`)
 - `CHECK_TIMEOUT_SECONDS` (default: `3`)
+- `CHECK_ATTEMPTS` (default: `3`)
+- `CHECK_ATTEMPT_DELAY_SECONDS` (default: `2`)
+- `OFFLINE_CONFIRMATION_CYCLES` (default: `2`)
+- `ONLINE_CONFIRMATION_CYCLES` (default: `2`)
+- `INCLUDE_TARGET_NAME_IN_MESSAGE` (default: `false`)
 - `STATE_PATH` (default: `state.json`)
 - `TIMEZONE` (default: `Europe/Kyiv`)
 
@@ -20,7 +25,7 @@ Backend читає конфігурацію зі змінних середови
     "name": "Квартира",
     "host": "1.2.3.4",
     "port": 443,
-    "chat_id": "-100123456789"
+    "chat_id": "@lumenguard_test_apartment"
   }
 ]
 ```
@@ -30,4 +35,4 @@ Backend читає конфігурацію зі змінних середови
 - `name`: непорожній рядок
 - `host`: непорожній рядок
 - `port`: ціле число `1..65535`
-- `chat_id`: непорожній рядок
+- `chat_id`: непорожній рядок (числовий ID каналу/чату або `@username` публічного каналу)
